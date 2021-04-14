@@ -1,4 +1,4 @@
-const X=4
+const X=6
 
 const generateL=(): number=>Math.floor(Math.random()*6+5)
 const generateL2=(): number=>Math.floor(Math.random()*15+1)/100
@@ -18,7 +18,8 @@ interface BankInterface{
 interface InvestitionInterface{
    banks: BankInterface[];
    time: number;
-   breakDeposit: ()=>void; 
+   breakDeposit: (bank: BankInterface)=>void;
+   chooseBank: (bank: BankInterface)=>void;
    invest: ()=>void;
    status: ()=>void;
 }
@@ -35,13 +36,13 @@ class Bank implements BankInterface{
       this.cycleTime=generateL()
       this.commision=generateL2()
       this.index=index
-      this.myFunds=funds
+      this.myFunds=funds      
 
       setTimeout(() => {
          this.cycle()
       }, this.cycleTime);   
       
-      console.log("cycle", this.cycleTime, " commision rate", this.commision);
+      console.log("bank", this.index, ":  cycle", this.cycleTime, " commision rate", this.commision);
    }
 
    takeFounds=(founds: number): number=>{
@@ -58,7 +59,7 @@ class Bank implements BankInterface{
 
    cycle=()=>{
       this.myFunds=Math.round(this.myFunds*(1+this.interest)*100)/100
-      this.interest=generateInterest()
+      this.interest=generateInterest()      
 
       setTimeout(() => {
          this.cycle()
@@ -82,39 +83,61 @@ class Investition implements InvestitionInterface{
 
       setTimeout(() => {
          this.status()
-      }, 10000);  //60000
+      }, 60000);
    }
 
-   breakDeposit=()=>{
+   chooseBank=(bank: BankInterface)=>{
+      let bankToMoveIndex=bank.index;
+      let maxProfit=bank.myFunds*(1+bank.interest);
 
+      for(let i=0;i<X;i++){           
+         if(this.time%this.banks[i].cycleTime===0 && this.banks[i].index!==bank.index){                  
+            let newBankProfit=(bank.myFunds-(bank.commision*bank.myFunds))*(1+this.banks[i].interest)                
+            
+            if(newBankProfit>maxProfit){
+               maxProfit=newBankProfit;
+               bankToMoveIndex=i;
+            }
+         }
+      }
+
+      if(bankToMoveIndex!==bank.index){
+         console.log("in second", this.time, "from bank", bank.index, "and interest rate equals to", bank.interest, "\nto bank", bankToMoveIndex, "with interest rate", this.banks[bankToMoveIndex].interest, "and cost of moving money", Math.round(bank.commision*bank.myFunds*100)/100);
+
+         this.banks[bankToMoveIndex].takeFounds(bank.makeTransfer())                     
+      }
+   }
+
+   breakDeposit=(bank: BankInterface)=>{
+      let oldBankProfit=bank.myFunds*(1+bank.interest)
+      let bankToMoveIndex=bank.index
+      let maxProfit=0
+
+      for(let i=0;i<X;i++){
+         if(this.time%this.banks[i].cycleTime===0 && this.banks[i].index!==bank.index){
+            maxProfit=(bank.myFunds*(1-bank.commision))*(1+this.banks[i].interest)-oldBankProfit
+
+            if(this.banks[i].cycleTime-(this.time%this.banks[i].cycleTime)<=bank.cycleTime-(this.time%bank.cycleTime)){
+               bankToMoveIndex=i
+            }
+         }
+      }
+
+      if(maxProfit>0 && bankToMoveIndex!=bank.index){
+         console.log("in second", this.time, "break deposit, from bank", bank.index, "and interest rate equals to", bank.interest, "\nto bank", bankToMoveIndex, "with interest rate", this.banks[bankToMoveIndex].interest, "and cost of moving money", Math.round(((bank.commision*bank.myFunds)+(bank.myFunds*bank.interest))*100)/100);
+
+         this.banks[bankToMoveIndex].takeFounds(bank.makeTransfer()) 
+      }
    }
 
    invest=()=>{
       this.time++;
       
       this.banks.forEach(bank=>{         
-         if(this.time%bank.cycleTime===0){
-            let bankToMoveIndex=bank.index;
-            let maxProfit=bank.myFunds*(1+bank.interest);
-
-            for(let i=0;i<X;i++){               
-               if(this.time%this.banks[i].cycleTime===0 && this.banks[i].index!==bank.index && bank.myFunds!==0){                  
-                  let newBankProfit=(bank.myFunds-(bank.commision*bank.myFunds))*(1+this.banks[i].interest)                
-                  
-                  if(newBankProfit>maxProfit){
-                     maxProfit=newBankProfit;
-                     bankToMoveIndex=i;
-                  }
-
-                  if(bank!==this.banks[bankToMoveIndex]){
-                     console.log("in second", this.time, "from bank", bank.index, "with cycle time", bank.cycleTime, "and rate equals to", bank.interest, "\nto bank", bankToMoveIndex, "with cycle time", this.banks[bankToMoveIndex].cycleTime, "with interest rate", this.banks[bankToMoveIndex].interest);
-      
-                     this.banks[bankToMoveIndex].takeFounds(bank.makeTransfer())                     
-                  }
-               }
-            }
-         }
-         // break deposit
+         if(this.time%bank.cycleTime===0)
+            this.chooseBank(bank)
+         else
+            this.breakDeposit(bank)
       })
 
       setTimeout(() => {
@@ -134,7 +157,7 @@ class Investition implements InvestitionInterface{
 
       setTimeout(() => {
          this.status();
-      }, 10000);   //change to 60000
+      }, 60000);
    };
 }
 
